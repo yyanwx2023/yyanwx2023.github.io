@@ -1,0 +1,431 @@
+/* Responsive CSS Style */
+@media only screen and (max-width: 1007px) {
+  .header-action li.nav-link span {
+    display: none;
+  }
+}
+
+@media only screen and (min-width: 960px) and (max-width: 1000px) {
+  .container {
+    width: 950px;
+  }
+  #featured-content h1 {
+    font-size: 34px;
+  }
+  #featured-content .featured-left {
+    width: 410px;
+  }
+  .layout-2c-l #primary,
+  .single-themes #primary,
+  .blog-page #primary {
+    width: 620px;
+  }
+}
+
+@media only screen and (min-width: 959px) {
+  .main-navigation {
+    display: block !important;
+  }
+  .sidebar__inner {
+    width: 300px !important;
+  }
+}
+
+/* Smaller than standard 960 (devices and browsers) */
+@media only screen and (max-width: 959px) {
+  .bottom-chat {
+    display: none !important;
+    visibility: hidden;
+  }
+  #top-notice {
+    display: none;
+  }
+  .site-branding {
+    margin-right: 0;
+  }
+  .main-navigation {
+    display: none;
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #f0f0f0;
+    position: absolute;
+    width: 100%;
+    top: 60px;
+    left: 0;
+    padding: 25px 0;
+    z-index: 9999;
+    text-align: center;
+  }
+  .main-navigation ul li {
+    display: block;
+    float: none;
+    height: 24px;
+    line-height: 24px;
+    list-style: none;
+    margin-bottom: 15px;
+  }
+  .main-navigation ul li:last-child {
+    margin-bottom: 0;
+  }
+  .main-navigation ul li a {
+    color: #333;
+    font-size: 16px;
+    font-weight: bold;
+    height: 24px;
+    line-height: 24px;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .main-navigation ul li a:hover,
+  .main-navigation ul li.menu-chat a:hover,
+  .main-navigation ul li.current-menu-item a {
+    border-bottom: none;
+  }
+  .header-action li.nav-btn {
+    display: none !important;
+  }
+  .header-action li.nav-link {
+    margin-right: 7px;
+  }
+  .header-action li.nav-link span {
+    display: none;
+  }
+  .header-action li.nav-menu {
+    display: block;
+    margin-right: 10px;
+  }
+  .container {
+    width: 96%;
+  }
+  .layout-2c-l #primary,
+  .single-themes #primary,
+  .blog-page #primary,
+  .page-template-page-tiny #primary {
+    float: none;
+    width: 100%;
+  }
+  .vip-content {
+    padding: 0;
+  }
+  .page-template-vip .page-header h1 {
+    font-size: 24px;
+  }
+  #secondary {
+    float: none;
+    width: 100% !important;
+    height: auto !important;
+  }
+  .sidebar__inner {
+    position: static !important;
+    bottom: auto !important;
+    transform: none !important;
+    width: 100% !important;
+  }
+  .section-more {
+    display: none;
+  }
+  #site-steps .step-wrap {
+    border-right: none;
+    border-bottom: 1px solid #e9e9e9;
+    margin: 0 0 25px 0;
+    padding-bottom: 25px;
+  }
+  #site-steps .step {
+    float: none;
+    width: 100%;
+  }
+  #site-steps .step.last .step-wrap {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+/* Tablet Portrait size to standard 960 (devices and browsers) */
+@media only screen and (min-width: 768px) and (max-width: 959px) {
+  h2.section-title {
+    font-size: 30px;
+    margin-bottom: 30px;
+  }
+  #featured-content h1 {
+    font-size: 25px;
+  }
+  #featured-content .featured-left {
+    width: 43%;
+  }
+  .home-slogan h2.section-title:after {
+    top: 6px;
+  }
+  .home-slogan .slogan-link {
+    margin-top: 7px;
+  }
+  .home-slogan .slogan-link a {
+    font-size: 18px;
+  }
+  .home-slogan .slogan-link .vip-link {
+    margin-left: 15px;
+  }
+  .themes-promo h2 {
+    font-size: 18px;
+  }
+  .themes-promo .action-button {
+    font-size: 16px;
+  }
+  .page-header h1 {
+    font-size: 30px;
+  }
+  .page-header .header-demo,
+  .page-header .sales-counter {
+    top: 10px;
+  }
+}
+
+/* All Mobile Sizes (devices and browser) */
+@media only screen and (max-width: 767px) {
+  #featured-content {
+    background-position: left center;
+  }
+  h2.section-title {
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .home-slogan h2.section-title {
+    float: none;
+  }
+  .home-slogan h2.section-title:after {
+    content: none;
+    display: none;
+  }
+  .home-slogan .slogan-link {
+    float: none;
+    margin-top: 15px;
+    text-align: center;
+  }
+  .home-slogan .slogan-link .vip-link {
+    margin-left: 20px;
+  }
+  .themes-promo {
+    display: none;
+  }
+  .entry-meta .post-author,
+  .entry-meta .post-date span {
+    display: none;
+  }
+  .content-loop .hentry {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+  }
+  .content-loop .hentry .thumbnail-link {
+    width: 84px;
+    margin-right: 15px;
+  }
+  .content-loop .hentry .entry-header .entry-title {
+    font-size: 1em;
+    margin-bottom: 2px;
+  }
+  .content-loop .hentry .entry-header .entry-meta {
+    font-size: 13px;
+    margin: 0;
+  }
+  .content-loop .hentry .entry-header .entry-meta .post-category:before {
+    top: 6px;
+  }
+  .content-loop .hentry .entry-summary {
+    display: none;
+  }
+}
+
+/* Mobile Landscape Size to Tablet Portrait (devices and browsers) */
+@media only screen and (min-width: 480px) and (max-width: 767px) {
+  #featured-content {
+    padding: 40px 0 40px 0;
+  }
+  #featured-content h1 {
+    font-size: 33px;
+  }
+  #featured-content .featured-left {
+    width: 420px;
+  }
+  .themes-loop .theme-item {
+    margin-bottom: 30px;
+  }
+  .themes-loop .theme-item:last-child {
+    margin-bottom: 0;
+  }
+  h2.section-title {
+    font-size: 24px;
+  }
+  .home-slogan .slogan-link a {
+    font-size: 22px;
+  }
+  .page-header {
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  .page-header h1 {
+    font-size: 24px;
+  }
+  .page-header .sales-counter {
+    top: 6px;
+  }
+  .page-header .header-demo {
+    top: 6px;
+  }
+  .page-header .header-demo a span {
+    display: none;
+  }
+  .entry-header h1.entry-title,
+  .entry-header h2.entry-title {
+    font-size: 24px;
+    font-weight: bold;
+  }
+  .singular-post .promo-box span.vip-promo,
+  .singular-post .promo-box span.qq-promo,
+  .single .promo-box span.vip-promo,
+  .single .promo-box span.qq-promo {
+    font-size: 14px;
+  }
+}
+
+/* Mobile Portrait Size to Mobile Landscape Size (devices and browsers) */
+@media only screen and (max-width: 479px) {
+  .header-action li.nav-link a,
+  .header-action li.login-link a {
+    font-size: 13px;
+  }
+  #featured-content {
+    padding: 40px 0 40px 0;
+  }
+  #featured-content h1 {
+    font-size: 24px;
+  }
+  #featured-content .featured-left {
+    width: 96%;
+    max-width: 430px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  h2.section-title {
+    font-size: 20px;
+  }
+  .home-guides {
+    border: none;
+    padding: 0;
+    text-align: center;
+  }
+  .home-guides strong {
+    display: block;
+    margin-bottom: 10px;
+  }
+  .home-guides a {
+    border-bottom: none;
+    display: block;
+    margin: 0 0 10px 0;
+  }
+  .home-themes,
+  #site-steps {
+    padding: 30px 0;
+  }
+  .themes-loop .theme-item {
+    margin-bottom: 30px;
+  }
+  .themes-loop .theme-item:last-child {
+    margin-bottom: 0;
+  }
+  #home-posts .hentry {
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 15px;
+    padding-left: 0;
+    padding-bottom: 15px;
+  }
+  #home-posts .hentry:first-child {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 15px;
+  }
+  #home-posts .hentry .entry-title {
+    font-size: 1em;
+    max-height: 100%;
+  }
+  #home-posts .hentry .entry-meta {
+    display: none;
+  }
+  #home-posts .hentry .entry-summary {
+    max-height: 100%;
+  }
+  .home-slogan {
+    padding-bottom: 0;
+  }
+  .home-slogan .slogan-link a {
+    font-size: 16px;
+  }
+  .page-header {
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  .page-header h1 {
+    font-size: 18px;
+  }
+  .page-header .sales-counter {
+    top: 2px;
+  }
+  .page-header .header-demo {
+    top: 2px;
+  }
+  .page-header .header-demo a {
+    font-weight: normal;
+  }
+  .page-header .header-demo a span {
+    display: none;
+  }
+  .entry-header h1.entry-title,
+  .entry-header h2.entry-title {
+    font-size: 20px;
+    font-weight: bold;
+  }
+  .single .breadcrumbs .zixun,
+  .archive .breadcrumbs .zixun {
+    display: none;
+  }
+  .singular-post .promo-box,
+  .single .promo-box {
+    height: auto;
+    line-height: 1.7;
+  }
+  .singular-post .promo-box span.vip-promo,
+  .single .promo-box span.vip-promo {
+    border-bottom: 1px solid #e1e8ed;
+  }
+  .singular-post .promo-box span.vip-promo:after,
+  .single .promo-box span.vip-promo:after {
+    content: none;
+  }
+  .singular-post .promo-box span.vip-promo,
+  .singular-post .promo-box span.qq-promo,
+  .single .promo-box span.vip-promo,
+  .single .promo-box span.qq-promo {
+    width: 100%;
+    font-size: 15px;
+    padding: 10px 0;
+  }
+  .pagination .page-numbers {
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0 2px;
+  }
+  .pagination .page-numbers:hover {
+    background-color: transparent;
+  }
+}
+
+@media only screen and (max-width: 359px) {
+  .header-action li.login-link a {
+    background-color: transparent;
+    border-radius: 0;
+    padding: 0;
+  }
+  .header-action li.login-link a:hover {
+    background-color: transparent;
+  }
+}
