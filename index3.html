@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>跳绳计数器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--card:#13131a;--accent:#6c5ce7;--accent2:#a29bfe;--green:#00b894;--orange:#fdcb6e;--red:#e17055;--text:#f0f0f5;--dim:#636e72}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100dvh;display:flex;flex-direction:column}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--card);border-bottom:1px solid rgba(255,255,255,0.06);z-index:10;flex-shrink:0}
+.header h1{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+.main{flex:1;position:relative;overflow:hidden}
+.video-wrap{position:relative;width:100%;height:100%}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+
+/* 半透明遮罩让文字可读 */
+.shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.3) 0%,transparent 30%,transparent 60%,rgba(0,0,0,0.5) 100%);z-index:5;pointer-events:none}
+
+.ui{position:absolute;inset:0;z-index:10;pointer-events:none}
+
+/* 大计数器 */
+.counter{position:absolute;top:35%;left:50%;transform:translate(-50%,-60%);text-align:center}
+.counter .num{font-size:clamp(80px,22vw,140px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 0 40px rgba(108,92,231,0.6),0 2px 10px rgba(0,0,0,0.5);transition:transform .08s}
+.counter .num.pop{transform:scale(1.15)}
+.counter .lbl{font-size:13px;color:var(--accent2);letter-spacing:4px;margin-top:2px}
+
+/* 调试面板 - 始终可见 */
+.debug{position:absolute;top:56px;left:12px;background:rgba(0,0,0,0.75);border-radius:10px;padding:8px 12px;font-family:'SF Mono',Consolas,monospace;font-size:12px;line-height:1.7;color:#0f0;z-index:20;pointer-events:none;min-width:160px;border:1px solid rgba(0,255,0,0.15)}
+.debug .label{color:#888}
+
+/* 灵敏度 */
+.sens{position:absolute;top:16px;right:16px;z-index:20;pointer-events:auto;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.65);backdrop-filter:blur(12px);padding:10px 18px;border-radius:24px;font-size:13px;color:var(--dim)}
+.sens input[type=range]{width:110px;height:30px;accent-color:var(--accent);-webkit-appearance:none;appearance:none;cursor:pointer}
+.sens input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+.sens input[type=range]::-webkit-slider-runnable-track{height:6px;background:rgba(255,255,255,0.15);border-radius:3px}
+.sens .val{font-size:18px;font-weight:800;color:var(--accent2);min-width:20px;text-align:center}
+
+/* 底部统计 */
+.stats{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:12px;pointer-events:auto}
+.stat{background:rgba(19,19,26,0.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:12px 20px;text-align:center;min-width:90px}
+.stat .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .l{font-size:11px;color:var(--dim);margin-top:2px}
+
+/* 按钮 */
+.btns{position:absolute;bottom:24px;right:20px;display:flex;flex-direction:column;gap:10px;pointer-events:auto;z-index:20}
+.btn{width:56px;height:56px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;transition:all .15s;box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+.btn:active{transform:scale(.88)}
+.btn-go{background:var(--green);color:#fff}
+.btn-pause{background:var(--red);color:#fff}
+.btn-alt{background:var(--card);color:var(--text);border:1px solid rgba(255,255,255,0.1)}
+
+/* 开始页 */
+.start{position:absolute;inset:0;z-index:30;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:40px;text-align:center}
+.start.hidden{display:none}
+.start .ico{font-size:72px;animation:bounce 1.4s infinite ease-in-out}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+.start h2{font-size:28px;font-weight:800}
+.start p{color:var(--dim);font-size:14px;line-height:1.6}
+.start .go{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;padding:16px 52px;border-radius:30px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 24px rgba(108,92,231,0.4)}
+.start .go:active{transform:scale(.95)}
+
+.toast{position:absolute;top:60px;left:50%;transform:translateX(-50%) translateY(-10px);background:var(--card);border:1px solid rgba(255,255,255,0.1);padding:10px 24px;border-radius:12px;font-size:13px;opacity:0;transition:all .25s;z-index:50;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* 历史 */
+.hist{position:absolute;top:0;right:-300px;width:280px;height:100%;background:var(--card);border-left:1px solid rgba(255,255,255,0.06);z-index:40;transition:right .3s;padding:20px;overflow-y:auto}
+.hist.open{right:0}
+.hist h3{font-size:16px;margin-bottom:16px}
+.hi{background:rgba(255,255,255,0.03);border-radius:12px;padding:12px;margin-bottom:8px}
+.hi .cnt{font-size:20px;font-weight:700;color:var(--accent2)}
+.hi .meta{font-size:11px;color:var(--dim);margin-top:4px}
+.empty{color:var(--dim);font-size:13px;text-align:center;margin-top:40px}
+</style>
+</head>
+<body>
+
+<div class="start" id="startScreen">
+  <div class="ico">🤸</div>
+  <h2>跳绳计数器</h2>
+  <p>摄像头运动检测自动计数<br>灵敏度可调，双击数字看调试</p>
+  <button class="go" id="startBtn">打开摄像头</button>
+</div>
+
+<div class="header">
+  <h1>🤸 跳绳计数器</h1>
+  <span id="fps" style="font-size:11px;color:#666;background:rgba(255,255,255,0.04);padding:3px 10px;border-radius:20px">-- FPS</span>
+</div>
+
+<div class="main">
+  <div class="video-wrap">
+    <video id="video" autoplay playsinline muted></video>
+  </div>
+  <div class="shade"></div>
+
+  <div class="ui">
+    <div class="sens">
+      <span>灵敏度</span>
+      <input type="range" id="sens" min="1" max="10" value="8">
+      <span class="val" id="sensVal">8</span>
+    </div>
+
+    <div class="counter">
+      <div class="num" id="num" style="color:var(--accent2)">0</div>
+      <div class="lbl">JUMPS</div>
+    </div>
+
+    <!-- 调试面板：默认显示，双击数字隐藏 -->
+    <div class="debug" id="dbg">
+      <span class="label">运动量:</span> <span id="dMotion">0</span><br>
+      <span class="label">阈值:</span> <span id="dThresh">0</span><br>
+      <span class="label">状态:</span> <span id="dState">--</span><br>
+      <span class="label">计数:</span> <span id="dCount">0</span><br>
+      <span class="label">帧:</span> <span id="dFrame">0</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v" id="timeVal">00:00</div><div class="l">时间</div></div>
+      <div class="stat"><div class="v" id="rpmVal">0</div><div class="l">次/分</div></div>
+      <div class="stat"><div class="v" id="calVal">0</div><div class="l">千卡</div></div>
+    </div>
+
+    <div class="btns">
+      <button class="btn btn-alt" id="resetBtn">↺</button>
+      <button class="btn btn-go" id="toggleBtn">▶</button>
+      <button class="btn btn-alt" id="histBtn">📋</button>
+    </div>
+  </div>
+
+  <div class="hist" id="histPanel">
+    <h3>📋 历史记录</h3>
+    <div id="histList"><div class="empty">暂无记录</div></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var video=document.getElementById('video'),
+    startScreen=document.getElementById('startScreen'),
+    startBtn=document.getElementById('startBtn'),
+    toggleBtn=document.getElementById('toggleBtn'),
+    resetBtn=document.getElementById('resetBtn'),
+    histBtn=document.getElementById('histBtn'),
+    histPanel=document.getElementById('histPanel'),
+    histList=document.getElementById('histList'),
+    numEl=document.getElementById('num'),
+    timeVal=document.getElementById('timeVal'),
+    rpmVal=document.getElementById('rpmVal'),
+    calVal=document.getElementById('calVal'),
+    fpsEl=document.getElementById('fps'),
+    toastEl=document.getElementById('toast'),
+    sensSlider=document.getElementById('sens'),
+    sensVal=document.getElementById('sensVal'),
+    dbg=document.getElementById('dbg'),
+    dMotion=document.getElementById('dMotion'),
+    dThresh=document.getElementById('dThresh'),
+    dState=document.getElementById('dState'),
+    dCount=document.getElementById('dCount'),
+    dFrame=document.getElementById('dFrame');
+
+var count=0,running=false,startMs=0,elapsed=0,lastJumpMs=0;
+var history=JSON.parse(localStorage.getItem('jr_hist')||'[]');
+var timer=null,stream=null;
+
+// 运动检测
+var prevGray=null;
+var motionBuf=[];       // 最近运动量
+var wasHigh=false;      // 上一帧是否高于阈值
+var highStartMs=0;      // 高运动开始时间
+var totalFrames=0;
+var fpsCount=0,fpsTime=0;
+
+// 采样尺寸（越小越快）
+var SW=120,SH=90;
+var tmpC=document.createElement('canvas');
+tmpC.width=SW;tmpC.height=SH;
+var tmpCtx=tmpC.getContext('2d',{willReadFrequently:true});
+
+// 调试开关
+var dbgVisible=true;
+numEl.addEventListener('dblclick',function(){
+  dbgVisible=!dbgVisible;
+  dbg.style.display=dbgVisible?'block':'none';
+  toast(dbgVisible?'调试 ON':'调试 OFF');
+});
+
+sensSlider.addEventListener('input',function(){sensVal.textContent=sensSlider.value});
+
+// ===== 主循环 =====
+function loop(){
+  if(!video.videoWidth||video.readyState<1){requestAnimationFrame(loop);return;}
+  totalFrames++;
+
+  // FPS
+  var now=performance.now();
+  fpsCount++;
+  if(now-fpsTime>1000){
+    fpsEl.textContent=fpsCount+' FPS';
+    fpsCount=0;fpsTime=now;
+  }
+
+  // 缩放取灰度
+  tmpCtx.drawImage(video,0,0,SW,SH);
+  var img=tmpCtx.getImageData(0,0,SW,SH);
+  var d=img.data;
+
+  // 验证像素数据是否有效
+  var samplePixel=d[0]+d[1]+d[2]+d[4]+d[5]+d[6];
+  if(totalFrames%60===0 && samplePixel===0 && dbgVisible){
+    dMotion.textContent='⚠ 无像素数据!';
+    dThresh.textContent='视频='+video.videoWidth+'x'+video.videoHeight+' rs='+video.readyState;
+  }
+
+  var gray=new Float32Array(SW*SH);
+  for(var i=0;i<SW*SH;i++){
+    var j=i*4;
+    gray[i]=(d[j]*0.299+d[j+1]*0.587+d[j+2]*0.114);
+  }
+
+  if(prevGray){
+    // 计算帧差
+    var diffSum=0;
+    for(var k=0;k<gray.length;k++){
+      var dd=gray[k]-prevGray[k];
+      if(dd<0)dd=-dd;
+      if(dd>8)diffSum+=dd;  // 忽略微小噪声
+    }
+    var motion=diffSum/(SW*SH);
+
+    motionBuf.push(motion);
+    if(motionBuf.length>90)motionBuf.shift();
+
+    // 跳跃检测
+    if(running) detectMotion(motion,now);
+
+    // Debug
+    if(dbgVisible){
+      dMotion.textContent=motion.toFixed(2);
+      dCount.textContent=count;
+      dFrame.textContent=totalFrames;
+    }
+  }
+  prevGray=gray;
+  requestAnimationFrame(loop);
+}
+
+function detectMotion(motion,now){
+  // 自适应阈值：取最近一段时间的中位数 * 倍率
+  var sens=parseInt(sensSlider.value);
+  var buf=motionBuf.length>30?motionBuf.slice(-30):motionBuf;
+  var sorted=buf.slice().sort(function(a,b){return a-b});
+  var median=sorted[Math.floor(sorted.length/2)]||5;
+  var mult=3.0-(sens-1)*0.22;  // 灵敏度10→1.02, 8→1.46, 1→3.0
+  var threshold=Math.max(2,median*mult);
+
+  if(dbgVisible) dThresh.textContent=threshold.toFixed(2);
+
+  var isHigh=motion>threshold;
+  var t=now;
+
+  if(isHigh){
+    if(!wasHigh){
+      highStartMs=t;  // 刚进入高运动
+      if(dbgVisible) dState.textContent='⬆ 高运动';
+    }
+    wasHigh=true;
+  }else{
+    if(wasHigh){
+      // 从高运动回到低运动 = 一次脉冲结束
+      var dur=t-highStartMs;
+      if(dur>60&&dur<3000&&(t-lastJumpMs)>180){
+        count++;
+        lastJumpMs=t;
+        onJump();
+      }
+      if(dbgVisible) dState.textContent='⬇ 恢复';
+    }
+    wasHigh=false;
+  }
+}
+
+function onJump(){
+  numEl.textContent=count;
+  numEl.classList.add('pop');
+  setTimeout(function(){numEl.classList.remove('pop')},100);
+  if(count%50===0){
+    numEl.style.color='var(--orange)';
+    setTimeout(function(){numEl.style.color='var(--accent2)'},600);
+  }
+  if(running) dCount.textContent=count;
+}
+
+// ===== 控制 =====
+startBtn.addEventListener('click',function(){
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:30}}
+  }).then(function(s){
+    stream=s;video.srcObject=s;
+    video.play().then(function(){
+      startScreen.classList.add('hidden');
+      toast('🟢 摄像头就绪');
+      requestAnimationFrame(loop);
+    });
+  }).catch(function(e){
+    toast('⚠️ 摄像头错误: '+e.message);
+  });
+});
+
+toggleBtn.addEventListener('click',function(){
+  if(running) pause(); else go();
+});
+
+function go(){
+  running=true;
+  if(!startMs)startMs=Date.now();
+  else startMs=Date.now()-elapsed;
+  toggleBtn.innerHTML='⏸';
+  toggleBtn.className='btn btn-pause';
+  timer=setInterval(updateStats,200);
+  toast('🟢 开始');
+}
+
+function pause(){
+  running=false;
+  toggleBtn.innerHTML='▶';
+  toggleBtn.className='btn btn-go';
+  clearInterval(timer);
+  save();
+  toast('⏸ 暂停');
+}
+
+function updateStats(){
+  if(!running)return;
+  elapsed=Date.now()-startMs;
+  var m=Math.floor(elapsed/60000),s=Math.floor((elapsed%60000)/1000);
+  timeVal.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  var em=elapsed/60000;
+  rpmVal.textContent=em>0?Math.round(count/em):0;
+  calVal.textContent=Math.round(count*0.15);
+}
+
+resetBtn.addEventListener('click',function(){
+  if(count>0)save();
+  count=0;elapsed=0;startMs=0;lastJumpMs=0;
+  motionBuf=[];wasHigh=false;highStartMs=0;
+  numEl.textContent='0';numEl.style.color='var(--accent2)';
+  timeVal.textContent='00:00';rpmVal.textContent='0';calVal.textContent='0';
+  if(running)pause();toast('↺ 重置');
+});
+
+histBtn.addEventListener('click',function(){histPanel.classList.toggle('open');renderHist()});
+
+function save(){
+  if(count===0||elapsed<2000)return;
+  history.unshift({c:count,d:elapsed,r:Math.round(count/(elapsed/60000)),k:Math.round(count*0.15),t:new Date().toLocaleString('zh-CN')});
+  if(history.length>20)history.pop();
+  localStorage.setItem('jr_hist',JSON.stringify(history));
+}
+
+function renderHist(){
+  if(!history.length){histList.innerHTML='<div class="empty">暂无记录</div>';return;}
+  histList.innerHTML=history.map(function(h){
+    return '<div class="hi"><div class="cnt">'+h.c+' 次</div><div class="meta">'+fmt(h.d)+' · '+h.r+' 次/分 · '+h.k+' 千卡<br>'+h.t+'</div></div>';
+  }).join('');
+}
+
+function fmt(ms){return Math.floor(ms/60000)+'分'+Math.floor((ms%60000)/1000)+'秒'}
+
+function toast(msg){
+  toastEl.textContent=msg;toastEl.classList.add('show');
+  clearTimeout(toast._t);toast._t=setTimeout(function(){toastEl.classList.remove('show')},2000);
+}
+
+document.addEventListener('click',function(e){
+  if(histPanel.classList.contains('open')&&!histPanel.contains(e.target)&&e.target!==histBtn)histPanel.classList.remove('open');
+});
+document.addEventListener('keydown',function(e){
+  if(e.code==='Space'){e.preventDefault();toggleBtn.click()}
+  if(e.code==='KeyR')resetBtn.click();
+});
+
+})();
+</script>
+</body>
+</html>
