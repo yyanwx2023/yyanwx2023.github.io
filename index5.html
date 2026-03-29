@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>跳绳计数器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0a;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+#videoContainer {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+video {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform: scaleX(-1);
+}
+#overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: env(safe-area-inset-top, 20px);
+  pointer-events: none;
+  z-index: 10;
+}
+#countDisplay {
+  font-size: 96px;
+  font-weight: 800;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+  margin-top: 20px;
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.1s ease;
+}
+#countDisplay.pulse {
+  transform: scale(1.15);
+}
+#timer {
+  font-size: 24px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  margin-top: 8px;
+}
+#status {
+  position: absolute;
+  bottom: 140px;
+  font-size: 16px;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+  padding: 8px 16px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 20px;
+}
+#controls {
+  position: absolute;
+  bottom: 0;
+  left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 20px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  pointer-events: auto;
+  z-index: 20;
+  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+}
+.btn {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+.btn:active { transform: scale(0.9); background: rgba(255,255,255,0.3); }
+.btn.primary {
+  width: 80px; height: 80px;
+  background: #4CAF50;
+  border-color: #4CAF50;
+  font-size: 16px;
+}
+.btn.primary.running {
+  background: #f44336;
+  border-color: #f44336;
+}
+#debugInfo {
+  position: absolute;
+  top: 60px; left: 10px;
+  font-size: 11px;
+  color: #0f0;
+  background: rgba(0,0,0,0.5);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: monospace;
+  z-index: 30;
+  pointer-events: none;
+  max-width: 200px;
+}
+#loading {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #0a0a0a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+#loading h2 { font-size: 24px; margin-bottom: 16px; }
+#loading p { color: rgba(255,255,255,0.6); font-size: 14px; }
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: #4CAF50;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.jump-flash {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(76, 175, 80, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 5;
+  transition: opacity 0.1s;
+}
+.jump-flash.active { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <h2>加载中...</h2>
+  <p id="loadingText">正在加载姿态检测模型</p>
+</div>
+
+<div id="videoContainer">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+  <div class="jump-flash" id="jumpFlash"></div>
+</div>
+
+<div id="overlay">
+  <div id="countDisplay">0</div>
+  <div id="timer">00:00</div>
+  <div id="status">点击开始按钮</div>
+</div>
+
+<div id="debugInfo"></div>
+
+<div id="controls">
+  <button class="btn" id="resetBtn" onclick="resetCount()">重置</button>
+  <button class="btn primary" id="startBtn" onclick="toggleRunning()">开始</button>
+</div>
+
+<script type="module">
+import { FilesetResolver, PoseLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs';
+
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const countDisplay = document.getElementById('countDisplay');
+const timerDisplay = document.getElementById('timer');
+const statusEl = document.getElementById('status');
+const debugInfo = document.getElementById('debugInfo');
+const loadingEl = document.getElementById('loading');
+const loadingText = document.getElementById('loadingText');
+const startBtn = document.getElementById('startBtn');
+const jumpFlash = document.getElementById('jumpFlash');
+
+let poseLandmarker = null;
+let running = false;
+let count = 0;
+let startTime = null;
+let timerInterval = null;
+let lastVideoTime = -1;
+let animFrame = null;
+
+// Jump detection state
+let hipYHistory = [];
+const HISTORY_SIZE = 12;
+let inJump = false;
+let lastJumpTime = 0;
+const MIN_JUMP_INTERVAL = 280; // ms - prevents double counting
+let smoothedY = null;
+const SMOOTHING = 0.3;
+
+// --- Init ---
+async function init() {
+  try {
+    loadingText.textContent = '正在初始化摄像头...';
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+    });
+    video.srcObject = stream;
+    await video.play();
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    loadingText.textContent = '正在加载姿态检测模型（约15MB）...';
+
+    const vision = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
+    );
+
+    poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+        delegate: 'GPU'
+      },
+      runningMode: 'VIDEO',
+      numPoses: 1
+    });
+
+    loadingEl.style.display = 'none';
+    statusEl.textContent = '准备就绪 - 点击开始';
+    detect();
+  } catch (err) {
+    loadingText.textContent = '初始化失败: ' + err.message;
+    console.error(err);
+  }
+}
+
+// --- Detection loop ---
+function detect() {
+  if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const results = poseLandmarker.detectForVideo(video, performance.now());
+    drawResults(results);
+    if (running) processResults(results);
+  }
+  animFrame = requestAnimationFrame(detect);
+}
+
+function drawResults(results) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!results.landmarks || results.landmarks.length === 0) return;
+
+  const lm = results.landmarks[0];
+
+  // Draw skeleton
+  const connections = [
+    [11,13],[13,15],[12,14],[14,16], // arms
+    [11,12], // shoulders
+    [11,23],[12,24],[23,24], // torso
+    [23,25],[25,27],[24,26],[26,28] // legs
+  ];
+
+  ctx.strokeStyle = 'rgba(76,175,80,0.7)';
+  ctx.lineWidth = 3;
+  for (const [a, b] of connections) {
+    if (lm[a] && lm[b]) {
+      ctx.beginPath();
+      ctx.moveTo(lm[a].x * canvas.width, lm[a].y * canvas.height);
+      ctx.lineTo(lm[b].x * canvas.width, lm[b].y * canvas.height);
+      ctx.stroke();
+    }
+  }
+
+  // Draw key points
+  for (const pt of lm) {
+    ctx.beginPath();
+    ctx.arc(pt.x * canvas.width, pt.y * canvas.height, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#4CAF50';
+    ctx.fill();
+  }
+}
+
+// --- Jump counting logic ---
+function processResults(results) {
+  if (!results.landmarks || results.landmarks.length === 0) {
+    statusEl.textContent = '未检测到人 - 请站在镜头前';
+    return;
+  }
+
+  const lm = results.landmarks[0];
+
+  // Use hip midpoint (landmarks 23, 24) as primary tracking point
+  const leftHip = lm[23];
+  const rightHip = lm[24];
+  const nose = lm[0];
+
+  if (!leftHip || !rightHip) {
+    statusEl.textContent = '请正对摄像头';
+    return;
+  }
+
+  // Average hip Y — most reliable for jump detection
+  let hipY = (leftHip.y + rightHip.y) / 2;
+
+  // Smooth
+  if (smoothedY === null) {
+    smoothedY = hipY;
+  } else {
+    smoothedY = smoothedY * (1 - SMOOTHING) + hipY * SMOOTHING;
+  }
+
+  hipYHistory.push(smoothedY);
+  if (hipYHistory.length > HISTORY_SIZE) hipYHistory.shift();
+
+  if (hipYHistory.length < 6) return;
+
+  // Jump detection: hip goes UP (y decreases in image coords) then comes DOWN
+  // Find if we're in a "high" position relative to recent history
+  const recent = hipYHistory;
+  const current = recent[recent.length - 1];
+  const prev1 = recent[recent.length - 2];
+  const prev2 = recent[recent.length - 3];
+
+  // Calculate local min/max pattern
+  // Average of older samples as baseline
+  const olderAvg = recent.slice(0, Math.floor(recent.length / 2))
+    .reduce((a, b) => a + b, 0) / Math.floor(recent.length / 2);
+  const newerAvg = recent.slice(Math.floor(recent.length / 2))
+    .reduce((a, b) => a + b, 0) / (recent.length - Math.floor(recent.length / 2));
+
+  // Dynamic threshold based on body height estimation
+  const leftShoulder = lm[11];
+  const rightShoulder = lm[12];
+  const shoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+  const bodyScale = Math.abs(shoulderY - hipY);
+  const threshold = Math.max(bodyScale * 0.12, 0.015); // adaptive threshold
+
+  const now = Date.now();
+  const timeSinceLastJump = now - lastJumpTime;
+
+  // Detect: hip moved upward significantly (y decreased) and is now coming back down
+  // Key insight: we detect the UPWARD phase completing (transition from going up to going down)
+  const goingUp = prev2 - prev1 > threshold * 0.3;   // y decreasing = going up
+  const peaked = prev1 - current > threshold * 0.3;   // y increasing = coming down
+  const wasHigh = current < olderAvg - threshold;       // currently higher than baseline
+
+  if (!inJump && goingUp && timeSinceLastJump > MIN_JUMP_INTERVAL) {
+    inJump = true;
+  }
+
+  if (inJump && peaked && wasHigh && timeSinceLastJump > MIN_JUMP_INTERVAL) {
+    // Completed a jump!
+    count++;
+    countDisplay.textContent = count;
+    countDisplay.classList.add('pulse');
+    setTimeout(() => countDisplay.classList.remove('pulse'), 100);
+
+    jumpFlash.classList.add('active');
+    setTimeout(() => jumpFlash.classList.remove('active'), 100);
+
+    lastJumpTime = now;
+    inJump = false;
+  }
+
+  // Reset inJump if too much time passed without completing
+  if (inJump && timeSinceLastJump > 1000) {
+    inJump = false;
+  }
+
+  statusEl.textContent = '跳绳中... 🏃';
+
+  // Debug
+  debugInfo.textContent =
+    `Y: ${current.toFixed(4)}\n` +
+    `平滑: ${smoothedY.toFixed(4)}\n` +
+    `阈值: ${threshold.toFixed(4)}\n` +
+    `inJump: ${inJump}\n` +
+    `计数: ${count}`;
+}
+
+// --- Controls ---
+window.toggleRunning = function() {
+  running = !running;
+  if (running) {
+    count = 0;
+    countDisplay.textContent = '0';
+    startTime = Date.now();
+    hipYHistory = [];
+    smoothedY = null;
+    inJump = false;
+    lastJumpTime = 0;
+    startBtn.textContent = '停止';
+    startBtn.classList.add('running');
+    statusEl.textContent = '跳绳中...';
+    timerInterval = setInterval(updateTimer, 1000);
+  } else {
+    startBtn.textContent = '开始';
+    startBtn.classList.remove('running');
+    statusEl.textContent = '已停止';
+    clearInterval(timerInterval);
+  }
+};
+
+window.resetCount = function() {
+  count = 0;
+  countDisplay.textContent = '0';
+  hipYHistory = [];
+  smoothedY = null;
+  inJump = false;
+  if (running) {
+    startTime = Date.now();
+    timerDisplay.textContent = '00:00';
+  }
+  statusEl.textContent = '已重置';
+};
+
+function updateTimer() {
+  if (!startTime) return;
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+  timerDisplay.textContent = `${m}:${s}`;
+}
+
+init();
+</script>
+</body>
+</html>
