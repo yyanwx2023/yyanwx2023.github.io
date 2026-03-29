@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>跳绳计数器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0f;color:#f0f0f5;font-family:-apple-system,system-ui,sans-serif;overflow:hidden;height:100dvh}
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#13131a;border-bottom:1px solid rgba(255,255,255,0.06);z-index:10;position:relative}
+.header h1{font-size:18px;font-weight:700;background:linear-gradient(135deg,#6c5ce7,#a29bfe);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.main{position:relative;height:calc(100dvh - 50px)}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.3),transparent 30%,transparent 55%,rgba(0,0,0,0.5));z-index:2;pointer-events:none}
+
+/* 大数字 */
+.counter{position:absolute;top:32%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:5}
+.counter .n{font-size:clamp(80px,22vw,140px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 0 50px rgba(108,92,231,0.5),0 3px 12px rgba(0,0,0,0.6);transition:transform .06s}
+.counter .n.pop{transform:scale(1.15)}
+.counter .l{font-size:13px;color:#a29bfe;letter-spacing:4px;margin-top:2px}
+
+/* 灵敏度 */
+.sens{position:absolute;top:12px;right:12px;z-index:10;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);padding:10px 16px;border-radius:24px;font-size:13px;color:#636e72}
+.sens input{width:100px;height:32px;accent-color:#6c5ce7;cursor:pointer}
+.sens .v{font-size:18px;font-weight:800;color:#a29bfe}
+
+/* 调试 */
+.dbg{position:absolute;top:56px;left:12px;z-index:10;background:rgba(0,0,0,0.8);border:1px solid rgba(0,255,0,0.15);border-radius:10px;padding:8px 12px;font-family:'SF Mono',Consolas,monospace;font-size:12px;line-height:1.8;color:#0f0}
+
+/* 统计 */
+.stats{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:5}
+.s{background:rgba(19,19,26,0.88);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:10px 18px;text-align:center;min-width:80px}
+.s .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.s .t{font-size:10px;color:#636e72;margin-top:2px}
+
+/* 按钮 */
+.btns{position:absolute;bottom:20px;right:16px;display:flex;flex-direction:column;gap:10px;z-index:10}
+.b{width:54px;height:54px;border-radius:50%;border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+.b:active{transform:scale(.86)}
+.bg{background:#00b894;color:#fff}
+.br{background:#e17055;color:#fff}
+.bo{background:#13131a;color:#f0f0f5;border:1px solid rgba(255,255,255,0.08)}
+
+/* 开始页 */
+.ss{position:absolute;inset:0;z-index:30;background:#0a0a0f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center;padding:40px}
+.ss.hide{display:none}
+.ss .i{font-size:72px;animation:bo 1.4s infinite}
+@keyframes bo{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+.ss h2{font-size:28px;font-weight:800}
+.ss p{color:#636e72;font-size:14px;line-height:1.6}
+.ss .go{background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;border:none;padding:16px 52px;border-radius:30px;font-size:17px;font-weight:700;cursor:pointer}
+
+.toast{position:absolute;top:56px;left:50%;transform:translateX(-50%) translateY(-10px);background:#13131a;border:1px solid rgba(255,255,255,0.08);padding:10px 24px;border-radius:12px;font-size:13px;opacity:0;transition:.25s;z-index:50;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* 隐藏的处理canvas */
+.proc{display:none}
+</style>
+</head>
+<body>
+
+<div class="ss" id="ss">
+  <div class="i">🤸</div>
+  <h2>跳绳计数器</h2>
+  <p>摄像头运动检测自动计数</p>
+  <button class="go" id="goBtn">打开摄像头</button>
+</div>
+
+<div class="header">
+  <h1>🤸 跳绳计数器</h1>
+  <span id="fps" style="font-size:11px;color:#555;background:rgba(255,255,255,0.04);padding:3px 10px;border-radius:16px">-- FPS</span>
+</div>
+
+<div class="main" id="main">
+  <video id="video" autoplay playsinline muted></video>
+  <div class="shade"></div>
+
+  <div class="sens">
+    <span>灵敏度</span>
+    <input type="range" id="sens" min="1" max="10" value="8">
+    <span class="v" id="sV">8</span>
+  </div>
+
+  <div class="counter">
+    <div class="n" id="num" style="color:#a29bfe">0</div>
+    <div class="l">JUMPS</div>
+  </div>
+
+  <div class="dbg" id="dbg">
+    运动: <span id="dM">--</span><br>
+    阈值: <span id="dT">--</span><br>
+    状态: <span id="dS">--</span><br>
+    计数: <span id="dC">0</span><br>
+    像素采样: <span id="dP">--</span>
+  </div>
+
+  <div class="stats">
+    <div class="s"><div class="v" id="tV">00:00</div><div class="t">时间</div></div>
+    <div class="s"><div class="v" id="rV">0</div><div class="t">次/分</div></div>
+    <div class="s"><div class="v" id="cV">0</div><div class="t">千卡</div></div>
+  </div>
+
+  <div class="btns">
+    <button class="b bo" id="rstBtn">↺</button>
+    <button class="b bg" id="togBtn">▶</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 处理用的canvas -->
+<canvas class="proc" id="procC" width="120" height="90"></canvas>
+
+<script>
+(function(){
+'use strict';
+
+var video=document.getElementById('video'),
+    procC=document.getElementById('procC'),
+    ctx=procC.getContext('2d',{willReadFrequently:true}),
+    ss=document.getElementById('ss'),
+    goBtn=document.getElementById('goBtn'),
+    togBtn=document.getElementById('togBtn'),
+    rstBtn=document.getElementById('rstBtn'),
+    numEl=document.getElementById('num'),
+    tV=document.getElementById('tV'),
+    rV=document.getElementById('rV'),
+    cV=document.getElementById('cV'),
+    fpsEl=document.getElementById('fps'),
+    sens=document.getElementById('sens'),
+    sV=document.getElementById('sV'),
+    dM=document.getElementById('dM'),
+    dT=document.getElementById('dT'),
+    dS=document.getElementById('dS'),
+    dC=document.getElementById('dC'),
+    dP=document.getElementById('dP'),
+    toastEl=document.getElementById('toast');
+
+var count=0,running=false,startMs=0,elapsed=0,lastJumpMs=0;
+var timer=null;
+
+// 运动检测
+var prevAvg=0;          // 上一帧的平均亮度
+var prevSamples=[];     // 最近的运动量
+var wasHigh=false;
+var highStart=0;
+var fc=0,fpsC=0,fpsT=0;
+
+// 灵敏度
+sens.addEventListener('input',function(){sV.textContent=sens.value});
+
+// ===== 用 <img> 方法读取视频帧 =====
+// 有些浏览器 canvas.drawImage(video) 会返回空帧
+// 用 video 的 onplay + requestAnimationFrame 强制同步读取
+
+var videoReady=false;
+
+function startLoop(){
+  if(!videoReady)return;
+  // 使用两种方式之一获取帧数据
+  // 方式1: canvas (标准方式)
+  // 方式2: 如果canvas失败，用亮度估算
+
+  if(video.readyState>=2){
+    processFrame();
+  }
+  requestAnimationFrame(startLoop);
+}
+
+function processFrame(){
+  fc++;
+  var now=performance.now();
+  fpsC++;
+  if(now-fpsT>1000){
+    fpsEl.textContent=fpsC+' FPS';
+    fpsC=0;fpsT=now;
+  }
+
+  // ====== 方案A: 直接算整帧平均亮度 ======
+  // 不依赖getImageData，用drawImage + getImageData试试
+  // 如果失败，退化到方案B
+
+  var motion=0;
+  var pixelSample='';
+
+  try{
+    ctx.drawImage(video,0,0,120,90);
+    var img=ctx.getImageData(0,0,120,90);
+    var d=img.data;
+    var len=120*90;
+
+    // 计算平均亮度
+    var totalBright=0;
+    for(var i=0;i<d.length;i+=4){
+      totalBright+=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+    }
+    var avgBright=totalBright/len;
+
+    // 帧差 = 平均亮度的变化量
+    motion=Math.abs(avgBright-prevAvg);
+
+    // 采样几个点
+    var s1=d[0],s2=d[1],s3=d[2];
+    var mid=(60*120+60)*4;
+    var m1=d[mid],m2=d[mid+1],m3=d[mid+2];
+    pixelSample='TL:'+s1+'/'+s2+'/'+s3+' C:'+m1+'/'+m2+'/'+m3+' avg:'+avgBright.toFixed(1);
+
+    prevAvg=avgBright;
+  }catch(e){
+    pixelSample='读取失败: '+e.message;
+  }
+
+  dP.textContent=pixelSample;
+  dM.textContent=motion.toFixed(2);
+
+  // 跳跃检测
+  if(running) detect(motion,now);
+}
+
+function detect(motion,now){
+  var s=parseInt(sens.value);
+
+  prevSamples.push(motion);
+  if(prevSamples.length>60)prevSamples.shift();
+
+  // 自适应阈值
+  var sorted=prevSamples.slice().sort(function(a,b){return a-b});
+  var median=sorted[Math.floor(sorted.length/2)]||0.5;
+  var mult=2.5-(s-1)*0.18; // 灵敏度越高倍率越低
+  var thresh=Math.max(0.3,median*mult);
+
+  dT.textContent=thresh.toFixed(2);
+
+  var isHigh=motion>thresh;
+
+  if(isHigh){
+    if(!wasHigh){
+      highStart=now;
+      dS.textContent='⬆ 活跃';
+    }
+    wasHigh=true;
+  }else{
+    if(wasHigh){
+      var dur=now-highStart;
+      if(dur>40&&dur<4000&&(now-lastJumpMs)>150){
+        count++;
+        lastJumpMs=now;
+        onJump();
+      }
+      dS.textContent='⬇';
+    }
+    wasHigh=false;
+  }
+}
+
+function onJump(){
+  numEl.textContent=count;
+  numEl.classList.add('pop');
+  setTimeout(function(){numEl.classList.remove('pop')},80);
+  if(count%50===0){
+    numEl.style.color='#fdcb6e';
+    setTimeout(function(){numEl.style.color='#a29bfe'},500);
+  }
+  dC.textContent=count;
+}
+
+// ====== 启动摄像头 ======
+goBtn.addEventListener('click',function(){
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:30}}
+  }).then(function(stream){
+    video.srcObject=stream;
+    video.onloadeddata=function(){
+      videoReady=true;
+      ss.classList.add('hide');
+      toast('🟢 就绪');
+      startLoop();
+    };
+    video.play();
+  }).catch(function(e){
+    toast('⚠️ '+e.message);
+  });
+});
+
+// 控制
+togBtn.addEventListener('click',function(){running?pause():go()});
+
+function go(){
+  running=true;
+  if(!startMs)startMs=Date.now();else startMs=Date.now()-elapsed;
+  togBtn.innerHTML='⏸';togBtn.className='b br';
+  timer=setInterval(updStats,200);
+  toast('🟢 开始');
+}
+function pause(){
+  running=false;
+  togBtn.innerHTML='▶';togBtn.className='b bg';
+  clearInterval(timer);save();toast('⏸ 暂停');
+}
+function updStats(){
+  if(!running)return;
+  elapsed=Date.now()-startMs;
+  var m=Math.floor(elapsed/60000),s=Math.floor((elapsed%60000)/1000);
+  tV.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  var em=elapsed/60000;
+  rV.textContent=em>0?Math.round(count/em):0;
+  cV.textContent=Math.round(count*0.15);
+}
+rstBtn.addEventListener('click',function(){
+  if(count>0)save();
+  count=0;elapsed=0;startMs=0;lastJumpMs=0;
+  prevSamples=[];wasHigh=false;highStart=0;prevAvg=0;
+  numEl.textContent='0';numEl.style.color='#a29bfe';
+  tV.textContent='00:00';rV.textContent='0';cV.textContent='0';
+  dC.textContent='0';dS.textContent='--';
+  if(running)pause();toast('↺ 重置');
+});
+
+function save(){
+  if(count===0||elapsed<2000)return;
+  var h=JSON.parse(localStorage.getItem('jr')||'[]');
+  h.unshift({c:count,d:elapsed,r:Math.round(count/(elapsed/60000)),k:Math.round(count*0.15),t:new Date().toLocaleString('zh-CN')});
+  if(h.length>20)h.pop();
+  localStorage.setItem('jr',JSON.stringify(h));
+}
+
+function toast(m){
+  toastEl.textContent=m;toastEl.classList.add('show');
+  clearTimeout(toast._t);toast._t=setTimeout(function(){toastEl.classList.remove('show')},2000);
+}
+
+document.addEventListener('keydown',function(e){
+  if(e.code==='Space'){e.preventDefault();togBtn.click()}
+  if(e.code==='KeyR')rstBtn.click();
+});
+
+})();
+</script>
+</body>
+</html>
