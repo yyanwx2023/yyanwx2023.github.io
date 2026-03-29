@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>跳绳计数器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0f;
+    --card: #13131a;
+    --accent: #6c5ce7;
+    --accent2: #a29bfe;
+    --green: #00b894;
+    --orange: #fdcb6e;
+    --red: #e17055;
+    --text: #f0f0f5;
+    --dim: #636e72;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--card);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header .fps-badge {
+    font-size: 11px;
+    color: var(--dim);
+    background: rgba(255,255,255,0.05);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  .video-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  #video {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+  #overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1);
+    pointer-events: none;
+  }
+
+  .overlay-ui {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .counter-ring {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    text-align: center;
+  }
+  .count-number {
+    font-size: clamp(64px, 18vw, 120px);
+    font-weight: 900;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 40px rgba(108,92,231,0.5), 0 2px 10px rgba(0,0,0,0.5);
+    transition: transform 0.08s ease-out;
+  }
+  .count-number.jump-pulse {
+    transform: scale(1.12);
+  }
+  .count-label {
+    font-size: 14px;
+    color: var(--accent2);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 4px;
+    opacity: 0.8;
+  }
+
+  .status-dot {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.error { background: var(--red); }
+
+  .stats-bar {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    pointer-events: auto;
+  }
+  .stat-card {
+    background: rgba(19,19,26,0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 12px 20px;
+    text-align: center;
+    min-width: 90px;
+  }
+  .stat-card .val {
+    font-size: 24px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-card .lbl {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 2px;
+  }
+
+  .controls {
+    position: absolute;
+    bottom: 24px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: auto;
+    z-index: 20;
+  }
+  .ctrl-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .ctrl-btn:active { transform: scale(0.9); }
+  .btn-start { background: var(--green); color: #fff; }
+  .btn-stop { background: var(--red); color: #fff; }
+  .btn-reset { background: var(--card); color: var(--text); border: 1px solid rgba(255,255,255,0.1); }
+
+  .start-screen {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 40px;
+    text-align: center;
+  }
+  .start-screen.hidden { display: none; }
+  .start-icon { font-size: 72px; animation: bounce 1.5s infinite ease-in-out; }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+  .start-screen h2 { font-size: 28px; font-weight: 800; }
+  .start-screen p { color: var(--dim); font-size: 14px; line-height: 1.6; max-width: 320px; }
+  .start-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border: none;
+    padding: 14px 48px;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 24px rgba(108,92,231,0.4);
+  }
+  .start-btn:hover { transform: scale(1.05); }
+
+  .history-panel {
+    position: absolute;
+    top: 0; right: -300px;
+    width: 280px;
+    height: 100%;
+    background: var(--card);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    z-index: 40;
+    transition: right 0.3s ease;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .history-panel.open { right: 0; }
+  .history-panel h3 { font-size: 16px; margin-bottom: 16px; }
+  .history-item {
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  .history-item .hi-count { font-size: 20px; font-weight: 700; color: var(--accent2); }
+  .history-item .hi-meta { font-size: 11px; color: var(--dim); margin-top: 4px; }
+  .no-history { color: var(--dim); font-size: 13px; text-align: center; margin-top: 40px; }
+
+  .toast {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 10px 24px;
+    border-radius: 12px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 50;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .debug-overlay {
+    position: absolute;
+    bottom: 100px;
+    left: 12px;
+    z-index: 50;
+    font-size: 11px;
+    color: #0f0;
+    background: rgba(0,0,0,0.7);
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: none;
+    font-family: monospace;
+    line-height: 1.6;
+    pointer-events: none;
+    min-width: 180px;
+  }
+
+  .sensitivity-wrap {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    pointer-events: auto;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
+    padding: 10px 18px;
+    border-radius: 24px;
+    font-size: 13px;
+    color: var(--dim);
+  }
+  .sensitivity-wrap input[type=range] {
+    width: 120px;
+    height: 28px;
+    accent-color: var(--accent);
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+  .sensitivity-wrap input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    cursor: pointer;
+  }
+  .sensitivity-wrap input[type=range]::-webkit-slider-runnable-track {
+    height: 6px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+  }
+  .sens-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent2);
+    min-width: 24px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="start-screen" id="startScreen">
+  <div class="start-icon">🤸</div>
+  <h2>跳绳计数器</h2>
+  <p>使用摄像头自动检测跳跃<br>通过运动分析精准计数</p>
+  <button class="start-btn" id="startBtn">开始使用</button>
+</div>
+
+<div class="header">
+  <h1>🤸 跳绳计数器</h1>
+  <div class="fps-badge" id="fpsBadge">-- FPS</div>
+</div>
+
+<div class="main">
+  <div class="video-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <div class="overlay-ui">
+    <div class="status-dot" id="statusDot">
+      <div class="dot" id="dot"></div>
+      <span id="statusText">等待启动</span>
+    </div>
+
+    <div class="sensitivity-wrap">
+      <span>灵敏度</span>
+      <input type="range" id="sensitivity" min="1" max="10" value="7">
+      <span class="sens-val" id="sensVal">7</span>
+    </div>
+
+    <div class="counter-ring">
+      <div class="count-number" id="countNum" style="color:var(--accent2)">0</div>
+      <div class="count-label">JUMPS</div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="val" id="timeVal">00:00</div>
+        <div class="lbl">时间</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="rpmVal">0</div>
+        <div class="lbl">次/分</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="calVal">0</div>
+        <div class="lbl">千卡</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl-btn btn-reset" id="resetBtn" title="重置">↺</button>
+      <button class="ctrl-btn btn-start" id="toggleBtn" title="开始/暂停">▶</button>
+      <button class="ctrl-btn btn-reset" id="historyBtn" title="历史记录">📋</button>
+    </div>
+  </div>
+
+  <div class="history-panel" id="historyPanel">
+    <h3>📋 历史记录</h3>
+    <div id="historyList"><div class="no-history">暂无记录</div></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="debug-overlay" id="debugOverlay"></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d', { willReadFrequently: true });
+  const startScreen = document.getElementById('startScreen');
+  const startBtn = document.getElementById('startBtn');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const historyBtn = document.getElementById('historyBtn');
+  const historyPanel = document.getElementById('historyPanel');
+  const historyList = document.getElementById('historyList');
+  const countNum = document.getElementById('countNum');
+  const timeVal = document.getElementById('timeVal');
+  const rpmVal = document.getElementById('rpmVal');
+  const calVal = document.getElementById('calVal');
+  const fpsBadge = document.getElementById('fpsBadge');
+  const dot = document.getElementById('dot');
+  const statusText = document.getElementById('statusText');
+  const toastEl = document.getElementById('toast');
+  const sensitivitySlider = document.getElementById('sensitivity');
+  const sensVal = document.getElementById('sensVal');
+  const debugOverlay = document.getElementById('debugOverlay');
+
+  // State
+  let jumpCount = 0;
+  let isRunning = false;
+  let startTime = 0;
+  let elapsed = 0;
+  let lastJumpTime = 0;
+  let timerInterval = null;
+  let history = JSON.parse(localStorage.getItem('jumpHistory') || '[]');
+  let stream = null;
+
+  // Motion detection state
+  let prevFrame = null;     // 上一帧灰度数据
+  let motionHistory = [];   // 运动量历史 [{val, t}]
+  let energyHistory = [];   // 能量历史（用于自适应阈值）
+  let jumpPhase = 'ground'; // 'ground' | 'air'
+
+  // Debug
+  let debugMode = false;
+  let lastMotionVal = 0;
+  let lastThreshold = 0;
+  let lastPhaseInfo = '';
+  let fps = 0, frameCount = 0, lastFpsTime = 0;
+
+  // Size for motion analysis (small = fast)
+  const MW = 160;
+  const MH = 120;
+
+  // Hidden canvas for frame processing
+  const procCanvas = document.createElement('canvas');
+  procCanvas.width = MW;
+  procCanvas.height = MH;
+  const procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+
+  // 双击计数器切换调试
+  countNum.addEventListener('dblclick', () => {
+    debugMode = !debugMode;
+    debugOverlay.style.display = debugMode ? 'block' : 'none';
+    showToast(debugMode ? '🔧 调试 ON' : '🔧 调试 OFF');
+  });
+
+  // 灵敏度数值实时显示
+  sensitivitySlider.addEventListener('input', () => {
+    sensVal.textContent = sensitivitySlider.value;
+  });
+
+  // ======== 核心：帧差运动检测 ========
+  function processMotionFrame() {
+    if (!video.videoWidth) {
+      requestAnimationFrame(processMotionFrame);
+      return;
+    }
+
+    // 缩放到小尺寸处理，速度快
+    procCtx.drawImage(video, 0, 0, MW, MH);
+    const frame = procCtx.getImageData(0, 0, MW, MH);
+    const data = frame.data;
+
+    // FPS
+    frameCount++;
+    const now = performance.now();
+    if (now - lastFpsTime > 1000) {
+      fps = Math.round(frameCount * 1000 / (now - lastFpsTime));
+      fpsBadge.textContent = `${fps} FPS`;
+      frameCount = 0;
+      lastFpsTime = now;
+    }
+
+    if (prevFrame) {
+      // 计算帧差
+      let totalDiff = 0;
+      let upperDiff = 0;   // 上半身区域
+      let lowerDiff = 0;   // 下半身区域
+      const halfH = MH / 2;
+
+      for (let y = 0; y < MH; y++) {
+        for (let x = 0; x < MW; x++) {
+          const i = (y * MW + x) * 4;
+          // 灰度差
+          const currGray = (data[i] + data[i+1] + data[i+2]) / 3;
+          const prevGray = (prevFrame[i] + prevFrame[i+1] + prevFrame[i+2]) / 3;
+          const diff = Math.abs(currGray - prevGray);
+
+          // 只关注显著变化（减少噪声）
+          if (diff > 15) {
+            totalDiff += diff;
+            if (y < halfH) upperDiff += diff;
+            else lowerDiff += diff;
+          }
+        }
+      }
+
+      // 归一化
+      const pixelCount = MW * MH;
+      const motionVal = totalDiff / pixelCount;  // 平均每像素变化
+
+      motionHistory.push({ val: motionVal, t: now });
+      if (motionHistory.length > 120) motionHistory.shift();
+
+      // 跳跃检测
+      if (isRunning) {
+        detectJumpByMotion(motionVal, upperDiff / (MW * halfH), lowerDiff / (MW * halfH), now);
+      }
+
+      lastMotionVal = motionVal;
+
+      // 调试显示
+      if (debugMode) {
+        const thr = getMotionThreshold();
+        debugOverlay.innerHTML =
+          `运动量: ${motionVal.toFixed(1)}<br>` +
+          `阈值: ${thr.toFixed(1)}<br>` +
+          `阶段: ${jumpPhase}<br>` +
+          `计数: ${jumpCount}<br>` +
+          `能量: ${getRecentEnergy().toFixed(1)}<br>` +
+          `FPS: ${fps}`;
+      }
+    }
+
+    // 保存当前帧
+    prevFrame = new Uint8ClampedArray(data);
+
+    requestAnimationFrame(processMotionFrame);
+  }
+
+  // ======== 自适应阈值 ========
+  function getRecentEnergy() {
+    if (motionHistory.length < 10) return 10;
+    const recent = motionHistory.slice(-30);
+    const avg = recent.reduce((s, m) => s + m.val, 0) / recent.length;
+    return avg;
+  }
+
+  function getMotionThreshold() {
+    const s = parseInt(sensitivitySlider.value);
+    const baseEnergy = getRecentEnergy();
+
+    // 自适应：基于近期运动水平设定阈值
+    // 安静时阈值低，运动时阈值自动提高（防误判）
+    // 灵敏度控制基础倍率
+    const multiplier = 2.0 - (s - 1) * 0.12; // 10=0.92, 7=1.28, 1=2.0
+    const minThreshold = 3 + (10 - s) * 1.5;  // 最低阈值
+
+    return Math.max(minThreshold, baseEnergy * multiplier);
+  }
+
+  // ======== 跳跃检测（运动脉冲模式）======
+  // 跳绳动作产生清晰的运动脉冲模式：
+  // 安静 → 跳起（大运动脉冲）→ 空中短暂安静 → 落地（大运动脉冲）→ 安静
+  // 检测：从"高运动"状态回落到"低运动"状态 = 完成一次跳跃周期
+
+  let highMotionSince = 0;
+  let wasInHighMotion = false;
+  let pulseCount = 0;
+
+  function detectJumpByMotion(motionVal, upperMotion, lowerMotion, now) {
+    const threshold = getMotionThreshold();
+    lastThreshold = threshold;
+
+    const isInHighMotion = motionVal > threshold;
+
+    // 方法1：运动脉冲检测
+    // 高运动区间结束（回落到阈值以下）= 一次跳跃完成
+    if (isInHighMotion) {
+      if (!wasInHighMotion) {
+        // 刚进入高运动状态
+        highMotionSince = now;
+      }
+      wasInHighMotion = true;
+    } else {
+      if (wasInHighMotion) {
+        // 刚从高运动状态恢复
+        const highDuration = now - highMotionSince;
+        // 高运动持续 100ms~2000ms 才算有效跳跃（排除晃动、摆手）
+        if (highDuration > 80 && highDuration < 2500 && (now - lastJumpTime) > 200) {
+          jumpCount++;
+          lastJumpTime = now;
+          pulseCount++;
+          onJumpDetected();
+        }
+      }
+      wasInHighMotion = false;
+    }
+
+    lastPhaseInfo = isInHighMotion ? 'HIGH' : 'LOW';
+  }
+
+  function onJumpDetected() {
+    countNum.textContent = jumpCount;
+    countNum.classList.add('jump-pulse');
+    setTimeout(() => countNum.classList.remove('jump-pulse'), 100);
+
+    if (jumpCount % 50 === 0) {
+      countNum.style.color = 'var(--orange)';
+      setTimeout(() => countNum.style.color = 'var(--accent2)', 600);
+    }
+
+    if (isRunning) setStatus('active', `跳跃中 · ${jumpCount} 次`);
+  }
+
+  // ======== UI 控制 ========
+  startBtn.addEventListener('click', async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 30 }
+        }
+      });
+      video.srcObject = stream;
+      await video.play();
+      overlay.width = video.videoWidth || 640;
+      overlay.height = video.videoHeight || 480;
+      startScreen.classList.add('hidden');
+      setStatus('active', '摄像头就绪');
+      requestAnimationFrame(processMotionFrame);
+    } catch (e) {
+      setStatus('error', '无法访问摄像头');
+      showToast('⚠️ 请允许摄像头权限');
+      console.error(e);
+    }
+  });
+
+  toggleBtn.addEventListener('click', () => {
+    if (isRunning) pause();
+    else start();
+  });
+
+  function start() {
+    isRunning = true;
+    if (startTime === 0) startTime = Date.now();
+    else startTime = Date.now() - elapsed;
+    toggleBtn.innerHTML = '⏸';
+    toggleBtn.className = 'ctrl-btn btn-stop';
+    timerInterval = setInterval(updateStats, 200);
+    setStatus('active', '跳跃中');
+    showToast('🟢 开始计数');
+  }
+
+  function pause() {
+    isRunning = false;
+    toggleBtn.innerHTML = '▶';
+    toggleBtn.className = 'ctrl-btn btn-start';
+    clearInterval(timerInterval);
+    saveSession();
+    setStatus('active', '已暂停');
+    showToast('⏸ 已暂停');
+  }
+
+  function updateStats() {
+    if (!isRunning) return;
+    elapsed = Date.now() - startTime;
+    const mins = Math.floor(elapsed / 60000);
+    const secs = Math.floor((elapsed % 60000) / 1000);
+    timeVal.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    const elapsedMin = elapsed / 60000;
+    rpmVal.textContent = elapsedMin > 0 ? Math.round(jumpCount / elapsedMin) : 0;
+    calVal.textContent = Math.round(jumpCount * 0.15);
+  }
+
+  resetBtn.addEventListener('click', () => {
+    if (jumpCount > 0) saveSession();
+    jumpCount = 0;
+    elapsed = 0;
+    startTime = 0;
+    lastJumpTime = 0;
+    motionHistory = [];
+    wasInHighMotion = false;
+    highMotionSince = 0;
+    pulseCount = 0;
+    countNum.textContent = '0';
+    countNum.style.color = 'var(--accent2)';
+    timeVal.textContent = '00:00';
+    rpmVal.textContent = '0';
+    calVal.textContent = '0';
+    if (isRunning) pause();
+    showToast('↺ 已重置');
+  });
+
+  historyBtn.addEventListener('click', () => {
+    historyPanel.classList.toggle('open');
+    renderHistory();
+  });
+
+  function saveSession() {
+    if (jumpCount === 0 || elapsed < 2000) return;
+    history.unshift({
+      count: jumpCount,
+      duration: elapsed,
+      rpm: Math.round(jumpCount / (elapsed / 60000)),
+      cal: Math.round(jumpCount * 0.15),
+      date: new Date().toLocaleString('zh-CN')
+    });
+    if (history.length > 20) history.pop();
+    localStorage.setItem('jumpHistory', JSON.stringify(history));
+  }
+
+  function renderHistory() {
+    if (history.length === 0) {
+      historyList.innerHTML = '<div class="no-history">暂无记录</div>';
+      return;
+    }
+    historyList.innerHTML = history.map(h => `
+      <div class="history-item">
+        <div class="hi-count">${h.count} 次</div>
+        <div class="hi-meta">
+          ${formatDuration(h.duration)} · ${h.rpm} 次/分 · ${h.cal} 千卡<br>${h.date}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function formatDuration(ms) {
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    return `${m}分${s}秒`;
+  }
+
+  function setStatus(type, text) {
+    dot.className = 'dot ' + (type === 'active' ? 'active' : type === 'error' ? 'error' : '');
+    statusText.textContent = text;
+  }
+
+  let toastTimeout;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 2000);
+  }
+
+  document.addEventListener('click', (e) => {
+    if (historyPanel.classList.contains('open') &&
+        !historyPanel.contains(e.target) && e.target !== historyBtn) {
+      historyPanel.classList.remove('open');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); toggleBtn.click(); }
+    if (e.code === 'KeyR') resetBtn.click();
+  });
+})();
+</script>
+</body>
+</html>
